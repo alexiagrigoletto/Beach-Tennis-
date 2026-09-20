@@ -1,5 +1,5 @@
 <!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Overlay</title><link rel="stylesheet" href="style.css"></head>
-<body class="overlay"><div id="score" class="score"></div><div id="ticker" class="ticker"></div>
+<body class="overlay"><div id="score" class="score"></div><div id="sponsorCorner" class="sponsor-corner"></div><div id="ticker" class="ticker"></div>
 <script src="/socket.io/socket.io.js"></script><script src="common.js"></script><script>
 let state=null, slide=0, timer=null;
 function draw(){
@@ -11,8 +11,13 @@ function draw(){
 function drawTicker(){
  if(!state)return; const n=state.sponsors.length+1; slide%=Math.max(1,n);
  let html="";
- if(slide<state.sponsors.length){const s=state.sponsors[slide]; html=`<div class="slide">${s.logo?`<img class="logo" src="${s.logo}">`:""}<span>${s.name||"PATROCINADOR"}</span></div>`}
- else {const e=state.event; html=`<div class="slide meta"><strong>${e.org}</strong><span class="sep">•</span><strong>${e.category}</strong><span class="sep">•</span><span>${e.division}</span><span class="sep">•</span><span>${e.round}</span>${e.temp?`<span class="sep">•</span><span>☀ ${e.temp}°C</span>`:""}${e.wind?`<span class="sep">•</span><span>💨 ${e.wind} km/h</span>`:""}${e.city?`<span class="sep">•</span><span>${e.city}</span>`:""}</div>`}
+ if(slide<state.sponsors.length){
+   const s=state.sponsors[slide];
+   document.getElementById("sponsorCorner").innerHTML=s.logo?`<img src="${s.logo}" alt="">`:"";
+   html="";
+ } else {
+   document.getElementById("sponsorCorner").innerHTML="";
+   const e=state.event; html=`<div class="slide meta"><strong>${e.org}</strong><span class="sep">•</span><strong>${e.category}</strong><span class="sep">•</span><span>${e.division}</span><span class="sep">•</span><span>${e.round}</span>${e.temp?`<span class="sep">•</span><span>☀ ${e.temp}°C</span>`:""}${e.wind?`<span class="sep">•</span><span>💨 ${e.wind} km/h</span>`:""}${e.city?`<span class="sep">•</span><span>${e.city}</span>`:""}</div>`}
  document.getElementById("ticker").innerHTML=html;
 }
 function resetTimer(){clearInterval(timer);timer=setInterval(()=>{slide++;drawTicker()},(state?.rotationSeconds||9)*1000)}
