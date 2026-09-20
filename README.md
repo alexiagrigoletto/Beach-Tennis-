@@ -29,3 +29,17 @@ Os patrocinadores agora aparecem somente pelo logotipo em um box compacto no can
 - patrocinador no canto inferior direito, sem caixa ou fundo;
 - rotação automática somente entre os logotipos;
 - placar mais compacto e com coluna PTS destacada.
+
+## v1.6
+- placar reduzido aproximadamente 24%;
+- cápsula inferior e patrocinador também menores;
+- clima automático pelo nome da cidade usando Open-Meteo;
+- temperatura, condição e vento atualizados automaticamente a cada 10 minutos.
+
+## v1.7 — localização automática
+- overlay solicita a localização do aparelho;
+- latitude/longitude passam automaticamente para o clima;
+- cidade detectada aparece na cápsula;
+- temperatura e vento atualizam a cada 10 minutos;
+- se a localização for bloqueada, usa a cidade manual do painel como reserva.
+IMPORTANTE: o navegador/PRISM precisa conceder permissão de localização ao Web Widget.

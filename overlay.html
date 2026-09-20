@@ -5,21 +5,42 @@
 <div id="sponsorCorner" class="sponsor-corner"></div>
 <script src="/socket.io/socket.io.js"></script><script src="common.js"></script><script>
 let state=null, sponsorIndex=0, timer=null, weather={temp:null,wind:null,code:null}, weatherCity="";
+async function getAutoLocation(){
+ return new Promise((resolve,reject)=>{
+   if(!navigator.geolocation) return reject(new Error("geolocation unavailable"));
+   navigator.geolocation.getCurrentPosition(
+     p=>resolve({lat:p.coords.latitude,lon:p.coords.longitude}),
+     reject,
+     {enableHighAccuracy:true,timeout:12000,maximumAge:600000}
+   );
+ });
+}
 async function updateWeather(){
- const city=(state?.event?.city||"").trim();
- if(!city) return;
  try{
-   if(city!==weatherCity){
-     const g=await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=pt&format=json&countryCode=BR`).then(r=>r.json());
-     if(!g.results?.length) return;
-     weatherCity=city;
-     window._weatherCoords={lat:g.results[0].latitude,lon:g.results[0].longitude};
+   let coords=window._weatherCoords;
+   if(!coords){
+     coords=await getAutoLocation();
+     window._weatherCoords=coords;
+     try{
+       const r=await fetch(`https://geocoding-api.open-meteo.com/v1/reverse?latitude=${coords.lat}&longitude=${coords.lon}&language=pt&format=json`).then(r=>r.json());
+       weatherCity=r.results?.[0]?.name||"";
+     }catch(e){ weatherCity=""; }
    }
-   const {lat,lon}=window._weatherCoords;
-   const w=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,wind_speed_10m,weather_code&temperature_unit=celsius&wind_speed_unit=kmh&timezone=auto`).then(r=>r.json());
+   const w=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&current=temperature_2m,wind_speed_10m,weather_code&temperature_unit=celsius&wind_speed_unit=kmh&timezone=auto`).then(r=>r.json());
    weather={temp:Math.round(w.current.temperature_2m),wind:Math.round(w.current.wind_speed_10m),code:w.current.weather_code};
    drawEvent();
- }catch(e){}
+ }catch(e){
+   // If permission/location is unavailable, fall back to the city configured in control.
+   const city=(state?.event?.city||"").trim();
+   if(!city) return;
+   try{
+     const g=await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=pt&format=json&countryCode=BR`).then(r=>r.json());
+     if(!g.results?.length)return;
+     window._weatherCoords={lat:g.results[0].latitude,lon:g.results[0].longitude};
+     weatherCity=g.results[0].name||city;
+     return updateWeather();
+   }catch(_){}
+ }
 }
 function weatherIcon(code){
  if(code===0)return "☀";
@@ -53,7 +74,7 @@ function drawEvent(){
  if(e.category) parts.push(`<strong>${e.category}</strong>`);
  if(weather.temp!==null) parts.push(`<span>${weatherIcon(weather.code)} ${weather.temp}°C</span>`);
  if(weather.wind!==null) parts.push(`<span>💨 ${weather.wind} km/h</span>`);
- if(e.city) parts.push(`<span>${e.city}</span>`);
+ if(weatherCity) parts.push(`<span>${weatherCity}</span>`);
  document.getElementById("eventPill").innerHTML=parts.join('<span class="pill-sep"></span>');
 }
 function drawSponsor(){
