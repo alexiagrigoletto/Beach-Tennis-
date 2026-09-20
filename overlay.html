@@ -4,7 +4,31 @@
 <div id="eventPill" class="event-pill"></div>
 <div id="sponsorCorner" class="sponsor-corner"></div>
 <script src="/socket.io/socket.io.js"></script><script src="common.js"></script><script>
-let state=null, sponsorIndex=0, timer=null;
+let state=null, sponsorIndex=0, timer=null, weather={temp:null,wind:null,code:null}, weatherCity="";
+async function updateWeather(){
+ const city=(state?.event?.city||"").trim();
+ if(!city) return;
+ try{
+   if(city!==weatherCity){
+     const g=await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=pt&format=json&countryCode=BR`).then(r=>r.json());
+     if(!g.results?.length) return;
+     weatherCity=city;
+     window._weatherCoords={lat:g.results[0].latitude,lon:g.results[0].longitude};
+   }
+   const {lat,lon}=window._weatherCoords;
+   const w=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,wind_speed_10m,weather_code&temperature_unit=celsius&wind_speed_unit=kmh&timezone=auto`).then(r=>r.json());
+   weather={temp:Math.round(w.current.temperature_2m),wind:Math.round(w.current.wind_speed_10m),code:w.current.weather_code};
+   drawEvent();
+ }catch(e){}
+}
+function weatherIcon(code){
+ if(code===0)return "☀";
+ if([1,2,3].includes(code))return "⛅";
+ if([45,48].includes(code))return "🌫";
+ if([51,53,55,61,63,65,80,81,82].includes(code))return "🌧";
+ if([95,96,99].includes(code))return "⛈";
+ return "☁";
+}
 
 function draw(){
  if(!state)return;
@@ -27,8 +51,8 @@ function drawEvent(){
  const parts=[];
  if(e.org) parts.push(`<strong>${e.org}</strong>`);
  if(e.category) parts.push(`<strong>${e.category}</strong>`);
- if(e.temp) parts.push(`<span>☀ ${e.temp}°C</span>`);
- if(e.wind) parts.push(`<span>💨 ${e.wind} km/h</span>`);
+ if(weather.temp!==null) parts.push(`<span>${weatherIcon(weather.code)} ${weather.temp}°C</span>`);
+ if(weather.wind!==null) parts.push(`<span>💨 ${weather.wind} km/h</span>`);
  if(e.city) parts.push(`<span>${e.city}</span>`);
  document.getElementById("eventPill").innerHTML=parts.join('<span class="pill-sep"></span>');
 }
@@ -47,5 +71,6 @@ function resetTimer(){
    if(sponsors.length>1){sponsorIndex=(sponsorIndex+1)%sponsors.length;drawSponsor()}
  },seconds*1000);
 }
-const socket=io();socket.on("state",s=>{state=s;draw();resetTimer()});
+const socket=io();socket.on("state",s=>{state=s;draw();resetTimer();updateWeather()});
+setInterval(updateWeather, 600000);
 </script></body></html>
