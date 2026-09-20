@@ -1,25 +1,51 @@
 <!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Overlay</title><link rel="stylesheet" href="style.css"></head>
-<body class="overlay"><div id="score" class="score"></div><div id="sponsorCorner" class="sponsor-corner"></div><div id="ticker" class="ticker"></div>
+<body class="overlay">
+<div id="score" class="score"></div>
+<div id="eventPill" class="event-pill"></div>
+<div id="sponsorCorner" class="sponsor-corner"></div>
 <script src="/socket.io/socket.io.js"></script><script src="common.js"></script><script>
-let state=null, slide=0, timer=null;
+let state=null, sponsorIndex=0, timer=null;
+
 function draw(){
  if(!state)return;
- const h=`<div class="head"><span>ATLETAS</span><span>SET 1</span><span>SET 2</span><span>MTB</span><span>PTS</span></div>`;
- const teams=state.teams.map((t,i)=>`<div class="team"><div class="players">${t.players.map(p=>`<div class="player"><span class="flag">${flag(p.country)}</span>${p.name}</div>`).join("")}</div><div class="cell">${t.sets[0]}</div><div class="cell">${t.sets[1]}</div><div class="cell">${state.inMTB?t.mtb:"-"}</div><div class="pts">${points(t,state)}${state.serverTeam===i?'<span class="serve"></span>':""}</div></div>`).join("");
- document.getElementById("score").innerHTML=h+teams; drawTicker();
+ const e=state.event||{};
+ const title=[e.division,e.round].filter(Boolean).join(" • ");
+ const h=`<div class="score-title">${title||"BEACH TENNIS"}</div>
+ <div class="head"><span>ATLETAS</span><span>SET 1</span><span>SET 2</span><span>MTB</span><span>PTS</span></div>`;
+ const teams=state.teams.map((t,i)=>`<div class="team">
+   <div class="players">${t.players.map(p=>`<div class="player"><span class="flag">${flag(p.country)}</span>${p.name}</div>`).join("")}</div>
+   <div class="cell">${t.sets[0]}</div><div class="cell">${t.sets[1]}</div>
+   <div class="cell">${state.inMTB?t.mtb:"-"}</div>
+   <div class="pts">${points(t,state)}${state.serverTeam===i?'<span class="serve"></span>':""}</div>
+ </div>`).join("");
+ document.getElementById("score").innerHTML=h+teams;
+ drawEvent();
+ drawSponsor();
 }
-function drawTicker(){
- if(!state)return; const n=state.sponsors.length+1; slide%=Math.max(1,n);
- let html="";
- if(slide<state.sponsors.length){
-   const s=state.sponsors[slide];
-   document.getElementById("sponsorCorner").innerHTML=s.logo?`<img src="${s.logo}" alt="">`:"";
-   html="";
- } else {
-   document.getElementById("sponsorCorner").innerHTML="";
-   const e=state.event; html=`<div class="slide meta"><strong>${e.org}</strong><span class="sep">•</span><strong>${e.category}</strong><span class="sep">•</span><span>${e.division}</span><span class="sep">•</span><span>${e.round}</span>${e.temp?`<span class="sep">•</span><span>☀ ${e.temp}°C</span>`:""}${e.wind?`<span class="sep">•</span><span>💨 ${e.wind} km/h</span>`:""}${e.city?`<span class="sep">•</span><span>${e.city}</span>`:""}</div>`}
- document.getElementById("ticker").innerHTML=html;
+function drawEvent(){
+ const e=state.event||{};
+ const parts=[];
+ if(e.org) parts.push(`<strong>${e.org}</strong>`);
+ if(e.category) parts.push(`<strong>${e.category}</strong>`);
+ if(e.temp) parts.push(`<span>☀ ${e.temp}°C</span>`);
+ if(e.wind) parts.push(`<span>💨 ${e.wind} km/h</span>`);
+ if(e.city) parts.push(`<span>${e.city}</span>`);
+ document.getElementById("eventPill").innerHTML=parts.join('<span class="pill-sep"></span>');
 }
-function resetTimer(){clearInterval(timer);timer=setInterval(()=>{slide++;drawTicker()},(state?.rotationSeconds||9)*1000)}
+function drawSponsor(){
+ const sponsors=(state.sponsors||[]).filter(s=>s.logo);
+ const box=document.getElementById("sponsorCorner");
+ if(!sponsors.length){ box.innerHTML=""; return; }
+ sponsorIndex%=sponsors.length;
+ box.innerHTML=`<img src="${sponsors[sponsorIndex].logo}" alt="">`;
+}
+function resetTimer(){
+ clearInterval(timer);
+ const seconds=Math.max(3,state?.rotationSeconds||9);
+ timer=setInterval(()=>{
+   const sponsors=(state?.sponsors||[]).filter(s=>s.logo);
+   if(sponsors.length>1){sponsorIndex=(sponsorIndex+1)%sponsors.length;drawSponsor()}
+ },seconds*1000);
+}
 const socket=io();socket.on("state",s=>{state=s;draw();resetTimer()});
 </script></body></html>
