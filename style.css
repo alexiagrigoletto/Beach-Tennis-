@@ -1,0 +1,17 @@
+:root{--glass:rgba(8,12,18,.86);--line:rgba(255,255,255,.18);--txt:#fff;--muted:#cfd5df}
+*{box-sizing:border-box} html,body{margin:0;width:100%;height:100%;font-family:Arial,Helvetica,sans-serif}
+body.overlay{background:transparent;overflow:hidden;color:var(--txt)}
+.score{position:absolute;left:42px;top:36px;width:650px;background:var(--glass);border-radius:14px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.25)}
+.head{display:grid;grid-template-columns:1fr 62px 62px 62px 72px;padding:8px 12px;font-size:15px;color:var(--muted);border-bottom:1px solid var(--line);text-align:center}
+.head span:first-child{text-align:left}
+.team{display:grid;grid-template-columns:1fr 62px 62px 62px 72px;align-items:center;min-height:92px;border-bottom:1px solid var(--line)}
+.team:last-child{border-bottom:0}.players{padding:10px 14px}.player{display:flex;gap:9px;align-items:center;font-weight:700;font-size:20px;line-height:1.65;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.flag{font-size:22px}.cell{text-align:center;font-weight:800;font-size:27px}.pts{font-size:31px;background:rgba(255,255,255,.08);height:100%;display:flex;align-items:center;justify-content:center}
+.serve{display:inline-block;width:9px;height:9px;border-radius:50%;background:#fff;margin-left:8px;vertical-align:2px}
+.ticker{position:absolute;left:0;right:0;bottom:0;height:118px;background:rgba(8,12,18,.9);display:flex;align-items:center;justify-content:center;padding:16px 70px}
+.slide{width:100%;display:flex;align-items:center;justify-content:center;gap:28px;font-weight:800;font-size:31px;letter-spacing:.4px}
+.logo{max-height:78px;max-width:300px;object-fit:contain}.meta{font-size:30px}.sep{opacity:.4}
+body.control{background:#f3f5f8;color:#151922;padding:20px}.panel{max-width:900px;margin:auto}.card{background:white;border-radius:16px;padding:18px;margin:0 0 16px;box-shadow:0 2px 12px rgba(0,0,0,.06)}
+h1{margin:0 0 18px}h2{margin:0 0 12px;font-size:19px}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+input,select,button{font:inherit;padding:12px;border-radius:10px;border:1px solid #ccd2dc}button{cursor:pointer;background:#161b22;color:white;border:0;font-weight:700}.primary{font-size:22px;padding:18px}.danger{background:#8b1e1e}.row{display:flex;gap:10px;flex-wrap:wrap}.small{font-size:13px;color:#657080}.status{font-weight:700}.wide{width:100%}
+@media(max-width:700px){.grid,.grid4{grid-template-columns:1fr}.panel{max-width:none}}

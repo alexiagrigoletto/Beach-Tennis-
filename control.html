@@ -1,0 +1,35 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Beach Tennis Control</title><link rel="stylesheet" href="style.css"></head>
+<body class="control"><div class="panel"><h1>Beach Tennis Control</h1><div class="card"><div class="status" id="status">Conectando…</div><div class="small">Overlay: <span id="overlayUrl"></span></div></div>
+<div class="card"><h2>Atletas e países (ISO: BR, IT, ES…)</h2><div id="players" class="grid"></div></div>
+<div class="card"><h2>Placar</h2><div class="grid"><button class="primary" onclick="addPoint(0)">+ PONTO DUPLA 1</button><button class="primary" onclick="addPoint(1)">+ PONTO DUPLA 2</button></div><br><div class="row"><button onclick="toggleServe()">Trocar saque</button><button onclick="setSet(0)">1º Set</button><button onclick="setSet(1)">2º Set</button><button onclick="toggleMTB()">Super Tie / MTB</button><button onclick="undo()">Desfazer</button></div></div>
+<div class="card"><h2>Torneio / clima</h2><div class="grid4">
+<input data-e="org" placeholder="ITF / CBT / FPT"><input data-e="category" placeholder="BT200"><input data-e="division" placeholder="FEMININO"><input data-e="round" placeholder="SEMIFINAL">
+<input data-e="city" placeholder="Cidade/UF"><input data-e="temp" placeholder="Temperatura °C"><input data-e="wind" placeholder="Vento km/h"><input id="rotation" type="number" min="3" placeholder="Rotação (s)">
+</div></div>
+<div class="card"><h2>Patrocinadores</h2><div id="sponsors"></div><button onclick="addSponsor()">+ Patrocinador</button><p class="small">Logo: cole uma URL HTTPS pública do PNG/SVG. O rodapé alterna automaticamente.</p></div>
+<div class="card"><div class="row"><button class="danger" onclick="resetAll()">Zerar tudo</button><button onclick="window.open('/overlay.html','_blank')">Abrir overlay</button></div></div>
+</div><script src="/socket.io/socket.io.js"></script><script src="common.js"></script><script>
+let state=null, history=[]; const socket=io();
+const clone=x=>JSON.parse(JSON.stringify(x)); function emit(){socket.emit("state",state)}
+socket.on("connect",()=>document.getElementById("status").textContent="● Conectado");
+socket.on("disconnect",()=>document.getElementById("status").textContent="○ Desconectado");
+socket.on("state",s=>{state=s;render()});
+document.getElementById("overlayUrl").textContent=location.origin+"/overlay.html";
+function snapshot(){history.push(clone(state));if(history.length>30)history.shift()}
+function addPoint(i){snapshot();gamePoint(state,i);emit();render()}
+function toggleServe(){snapshot();state.serverTeam=1-state.serverTeam;emit();render()}
+function setSet(i){snapshot();state.currentSet=i;state.inMTB=false;emit();render()}
+function toggleMTB(){snapshot();state.inMTB=!state.inMTB;emit();render()}
+function undo(){if(history.length){state=history.pop();emit();render()}}
+async function resetAll(){if(confirm("Zerar placar e configurações?")){await fetch("/api/reset",{method:"POST"});}}
+function render(){
+ if(!state)return;
+ document.getElementById("players").innerHTML=state.teams.flatMap((t,ti)=>t.players.map((p,pi)=>`<div class="row"><input style="flex:1" value="${p.name}" onchange="player(${ti},${pi},'name',this.value)"><input style="width:75px" maxlength="2" value="${p.country}" onchange="player(${ti},${pi},'country',this.value)"></div>`)).join("");
+ document.querySelectorAll("[data-e]").forEach(el=>{el.value=state.event[el.dataset.e]||"";el.onchange=()=>{state.event[el.dataset.e]=el.value;emit()}});
+ const r=document.getElementById("rotation");r.value=state.rotationSeconds;r.onchange=()=>{state.rotationSeconds=Number(r.value)||9;emit()};
+ document.getElementById("sponsors").innerHTML=state.sponsors.map((s,i)=>`<div class="grid" style="margin-bottom:8px"><input value="${s.name}" onchange="sponsor(${i},'name',this.value)" placeholder="Nome"><input value="${s.logo}" onchange="sponsor(${i},'logo',this.value)" placeholder="URL do logo"></div>`).join("");
+}
+function player(t,p,k,v){state.teams[t].players[p][k]=v;emit()}
+function sponsor(i,k,v){state.sponsors[i][k]=v;emit()}
+function addSponsor(){state.sponsors.push({name:"NOVO PATROCINADOR",logo:""});emit();render()}
+</script></body></html>
