@@ -22,8 +22,8 @@ async function updateWeather(){
      coords=await getAutoLocation();
      window._weatherCoords=coords;
      try{
-       const r=await fetch(`https://geocoding-api.open-meteo.com/v1/reverse?latitude=${coords.lat}&longitude=${coords.lon}&language=pt&format=json`).then(r=>r.json());
-       weatherCity=r.results?.[0]?.name||"";
+       const r=await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${coords.lat}&longitude=${coords.lon}&localityLanguage=pt`).then(r=>r.json());
+       weatherCity=r.city||r.locality||r.principalSubdivision||"";
      }catch(e){ weatherCity=""; }
    }
    const w=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&current=temperature_2m,wind_speed_10m,weather_code&temperature_unit=celsius&wind_speed_unit=kmh&timezone=auto`).then(r=>r.json());
@@ -74,7 +74,7 @@ function drawEvent(){
  if(e.category) parts.push(`<strong>${e.category}</strong>`);
  if(weather.temp!==null) parts.push(`<span>${weatherIcon(weather.code)} ${weather.temp}°C</span>`);
  if(weather.wind!==null) parts.push(`<span>💨 ${weather.wind} km/h</span>`);
- if(weatherCity) parts.push(`<span>${weatherCity}</span>`);
+ if(weatherCity) parts.push(`<span>${weatherCity.toUpperCase()}</span>`);
  document.getElementById("eventPill").innerHTML=parts.join('<span class="pill-sep"></span>');
 }
 function drawSponsor(){

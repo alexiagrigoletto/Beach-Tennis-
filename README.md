@@ -43,3 +43,6 @@ Os patrocinadores agora aparecem somente pelo logotipo em um box compacto no can
 - temperatura e vento atualizam a cada 10 minutos;
 - se a localização for bloqueada, usa a cidade manual do painel como reserva.
 IMPORTANTE: o navegador/PRISM precisa conceder permissão de localização ao Web Widget.
+
+## v1.8 — correção da cidade automática
+A localização GPS já estava funcionando para clima, mas a consulta reversa usada para transformar coordenadas em nome de cidade não retornava o município. A v1.8 usa reverse geocoding compatível para exibir a cidade automaticamente.
