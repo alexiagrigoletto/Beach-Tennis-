@@ -1,6 +1,10 @@
-v1.9 — TIE + SUPER TIE
-Substitua no GitHub: common.js, control.html, overlay.html e server.js.
-Depois do deploy do Render, abra o controle e use 'Zerar tudo' uma vez.
-TIE: selecione 1º ou 2º Set e toque TIE. Contagem 0,1,2,3...
-SUPER TIE: toque SUPER TIE. Contagem 0,1,2,3...
-Games normais continuam 0/15/30/40.
+Beach Tennis Live v1.10
+
+Regras automáticas ITF/World Tennis 2026:
+- Games No-Ad: 0, 15, 30, 40, game; em 40-40 o próximo ponto decide.
+- Sets 1 e 2: primeiro a 6 games com diferença de 2; em 6-6 entra Tie-Break.
+- Tie-Break: primeiro a 7 pontos com diferença de 2; vencedor fecha o set em 7-6.
+- Se ficar 1 set a 1: Super Tie / Match Tie-Break automático.
+- Super Tie: primeiro a 10 pontos com diferença de 2.
+- Encerramento automático da partida.
+- TIE e SUPER TIE permanecem no controle como override manual.
