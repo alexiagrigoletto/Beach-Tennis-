@@ -1,97 +1,10 @@
-<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Overlay</title><link rel="stylesheet" href="style.css"></head>
-<body class="overlay">
-<div id="score" class="score"></div>
-<div id="eventPill" class="event-pill"></div>
-<div id="sponsorCorner" class="sponsor-corner"></div>
-<script src="/socket.io/socket.io.js"></script><script src="common.js"></script><script>
-let state=null, sponsorIndex=0, timer=null, weather={temp:null,wind:null,code:null}, weatherCity="";
-async function getAutoLocation(){
- return new Promise((resolve,reject)=>{
-   if(!navigator.geolocation) return reject(new Error("geolocation unavailable"));
-   navigator.geolocation.getCurrentPosition(
-     p=>resolve({lat:p.coords.latitude,lon:p.coords.longitude}),
-     reject,
-     {enableHighAccuracy:true,timeout:12000,maximumAge:600000}
-   );
- });
-}
-async function updateWeather(){
- try{
-   let coords=window._weatherCoords;
-   if(!coords){
-     coords=await getAutoLocation();
-     window._weatherCoords=coords;
-     try{
-       const r=await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${coords.lat}&longitude=${coords.lon}&localityLanguage=pt`).then(r=>r.json());
-       weatherCity=r.city||r.locality||r.principalSubdivision||"";
-     }catch(e){ weatherCity=""; }
-   }
-   const w=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&current=temperature_2m,wind_speed_10m,weather_code&temperature_unit=celsius&wind_speed_unit=kmh&timezone=auto`).then(r=>r.json());
-   weather={temp:Math.round(w.current.temperature_2m),wind:Math.round(w.current.wind_speed_10m),code:w.current.weather_code};
-   drawEvent();
- }catch(e){
-   // If permission/location is unavailable, fall back to the city configured in control.
-   const city=(state?.event?.city||"").trim();
-   if(!city) return;
-   try{
-     const g=await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=pt&format=json&countryCode=BR`).then(r=>r.json());
-     if(!g.results?.length)return;
-     window._weatherCoords={lat:g.results[0].latitude,lon:g.results[0].longitude};
-     weatherCity=g.results[0].name||city;
-     return updateWeather();
-   }catch(_){}
- }
-}
-function weatherIcon(code){
- if(code===0)return "☀";
- if([1,2,3].includes(code))return "⛅";
- if([45,48].includes(code))return "🌫";
- if([51,53,55,61,63,65,80,81,82].includes(code))return "🌧";
- if([95,96,99].includes(code))return "⛈";
- return "☁";
-}
-
-function draw(){
- if(!state)return;
- const e=state.event||{};
- const title=[e.division,e.round].filter(Boolean).join(" • ");
- const h=`<div class="score-title">${title||"BEACH TENNIS"}</div>
- <div class="head"><span>ATLETAS</span><span>SET 1</span><span>SET 2</span><span>MTB</span><span>PTS</span></div>`;
- const teams=state.teams.map((t,i)=>`<div class="team">
-   <div class="players">${t.players.map(p=>`<div class="player"><span class="flag">${flag(p.country)}</span>${p.name}</div>`).join("")}</div>
-   <div class="cell">${t.sets[0]}</div><div class="cell">${t.sets[1]}</div>
-   <div class="cell">${state.inMTB?t.mtb:"-"}</div>
-   <div class="pts">${points(t,state)}${state.serverTeam===i?'<span class="serve"></span>':""}</div>
- </div>`).join("");
- document.getElementById("score").innerHTML=h+teams;
- drawEvent();
- drawSponsor();
-}
-function drawEvent(){
- const e=state.event||{};
- const parts=[];
- if(e.org) parts.push(`<strong>${e.org}</strong>`);
- if(e.category) parts.push(`<strong>${e.category}</strong>`);
- if(weather.temp!==null) parts.push(`<span>${weatherIcon(weather.code)} ${weather.temp}°C</span>`);
- if(weather.wind!==null) parts.push(`<span>💨 ${weather.wind} km/h</span>`);
- if(weatherCity) parts.push(`<span>${weatherCity.toUpperCase()}</span>`);
- document.getElementById("eventPill").innerHTML=parts.join('<span class="pill-sep"></span>');
-}
-function drawSponsor(){
- const sponsors=(state.sponsors||[]).filter(s=>s.logo);
- const box=document.getElementById("sponsorCorner");
- if(!sponsors.length){ box.innerHTML=""; return; }
- sponsorIndex%=sponsors.length;
- box.innerHTML=`<img src="${sponsors[sponsorIndex].logo}" alt="">`;
-}
-function resetTimer(){
- clearInterval(timer);
- const seconds=Math.max(3,state?.rotationSeconds||9);
- timer=setInterval(()=>{
-   const sponsors=(state?.sponsors||[]).filter(s=>s.logo);
-   if(sponsors.length>1){sponsorIndex=(sponsorIndex+1)%sponsors.length;drawSponsor()}
- },seconds*1000);
-}
-const socket=io();socket.on("state",s=>{state=s;draw();resetTimer();updateWeather()});
-setInterval(updateWeather, 600000);
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Overlay</title><link rel="stylesheet" href="style.css"></head><body class="overlay"><div id="score" class="score"></div><div id="eventPill" class="event-pill"></div><div id="sponsorCorner" class="sponsor-corner"></div><script src="/socket.io/socket.io.js"></script><script src="common.js"></script><script>
+let state=null,sponsorIndex=0,timer=null,weather={temp:null,wind:null,code:null},weatherCity="";
+async function updateWeather(){try{let c=window._weatherCoords;if(!c){c=await new Promise((ok,no)=>navigator.geolocation.getCurrentPosition(p=>ok({lat:p.coords.latitude,lon:p.coords.longitude}),no,{enableHighAccuracy:true,timeout:12000,maximumAge:600000}));window._weatherCoords=c;try{const r=await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${c.lat}&longitude=${c.lon}&localityLanguage=pt`).then(x=>x.json());weatherCity=r.city||r.locality||r.principalSubdivision||""}catch(e){}}const w=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${c.lat}&longitude=${c.lon}&current=temperature_2m,wind_speed_10m,weather_code&temperature_unit=celsius&wind_speed_unit=kmh&timezone=auto`).then(x=>x.json());weather={temp:Math.round(w.current.temperature_2m),wind:Math.round(w.current.wind_speed_10m),code:w.current.weather_code};drawEvent()}catch(e){const city=(state?.event?.city||"").trim();if(!city)return;try{const g=await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=pt&format=json&countryCode=BR`).then(x=>x.json());if(!g.results?.length)return;window._weatherCoords={lat:g.results[0].latitude,lon:g.results[0].longitude};weatherCity=g.results[0].name||city;updateWeather()}catch(_){}}}
+function wi(c){if(c===0)return"☀";if([1,2,3].includes(c))return"⛅";if([45,48].includes(c))return"🌫";if([51,53,55,61,63,65,80,81,82].includes(c))return"🌧";if([95,96,99].includes(c))return"⛈";return"☁"}
+function draw(){if(!state)return;ensureScoreState(state);const e=state.event||{},title=[e.division,e.round].filter(Boolean).join(" • ");const h=`<div class="score-title">${title||"BEACH TENNIS"}</div><div class="head"><span>ATLETAS</span><span>SET 1</span><span>SET 2</span><span>${specialLabel(state)}</span><span>PTS</span></div>`;const teams=state.teams.map((t,i)=>`<div class="team"><div class="players">${t.players.map(p=>`<div class="player"><span class="flag">${flag(p.country)}</span>${p.name}</div>`).join("")}</div><div class="cell">${t.sets[0]}</div><div class="cell">${t.sets[1]}</div><div class="cell">${specialScore(t,state)}</div><div class="pts">${points(t,state)}${state.serverTeam===i?'<span class="serve"></span>':""}</div></div>`).join("");score.innerHTML=h+teams;drawEvent();drawSponsor()}
+function drawEvent(){if(!state)return;const e=state.event||{},p=[];if(e.org)p.push(`<strong>${e.org}</strong>`);if(e.category)p.push(`<strong>${e.category}</strong>`);if(weather.temp!==null)p.push(`<span>${wi(weather.code)} ${weather.temp}°C</span>`);if(weather.wind!==null)p.push(`<span>💨 ${weather.wind} km/h</span>`);if(weatherCity)p.push(`<span>${weatherCity.toUpperCase()}</span>`);eventPill.innerHTML=p.join('<span class="pill-sep"></span>')}
+function drawSponsor(){const a=(state?.sponsors||[]).filter(s=>s.logo);if(!a.length){sponsorCorner.innerHTML="";return}sponsorIndex%=a.length;sponsorCorner.innerHTML=`<img src="${a[sponsorIndex].logo}" alt="">`}
+function resetTimer(){clearInterval(timer);timer=setInterval(()=>{const a=(state?.sponsors||[]).filter(s=>s.logo);if(a.length>1){sponsorIndex=(sponsorIndex+1)%a.length;drawSponsor()}},Math.max(3,state?.rotationSeconds||9)*1000)}
+const socket=io();socket.on("state",s=>{state=s;ensureScoreState(state);draw();resetTimer();updateWeather()});setInterval(updateWeather,600000);
 </script></body></html>

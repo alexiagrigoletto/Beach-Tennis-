@@ -1,0 +1,6 @@
+v1.9 — TIE + SUPER TIE
+Substitua no GitHub: common.js, control.html, overlay.html e server.js.
+Depois do deploy do Render, abra o controle e use 'Zerar tudo' uma vez.
+TIE: selecione 1º ou 2º Set e toque TIE. Contagem 0,1,2,3...
+SUPER TIE: toque SUPER TIE. Contagem 0,1,2,3...
+Games normais continuam 0/15/30/40.
