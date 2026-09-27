@@ -1,55 +1,113 @@
 <!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Overlay</title><link rel="stylesheet" href="style.css"></head><body class="overlay"><div id="score" class="score"></div><div id="eventPill" class="event-pill"></div><div id="sponsorCorner" class="sponsor-corner"></div><script src="/socket.io/socket.io.js"></script><script src="common.js"></script><script>
-let state=null,sponsorIndex=0,timer=null,weather={temp:null,wind:null,code:null},weatherCity="";
-async function updateWeather(){try{let c=window._weatherCoords;if(!c){c=await new Promise((ok,no)=>navigator.geolocation.getCurrentPosition(p=>ok({lat:p.coords.latitude,lon:p.coords.longitude}),no,{enableHighAccuracy:true,timeout:12000,maximumAge:600000}));window._weatherCoords=c;try{const r=await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${c.lat}&longitude=${c.lon}&localityLanguage=pt`).then(x=>x.json());weatherCity=r.city||r.locality||r.principalSubdivision||""}catch(e){}}const w=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${c.lat}&longitude=${c.lon}&current=temperature_2m,wind_speed_10m,weather_code&temperature_unit=celsius&wind_speed_unit=kmh&timezone=auto`).then(x=>x.json());weather={temp:Math.round(w.current.temperature_2m),wind:Math.round(w.current.wind_speed_10m),code:w.current.weather_code};drawEvent()}catch(e){const city=(state?.event?.city||"").trim();if(!city)return;try{const g=await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=pt&format=json&countryCode=BR`).then(x=>x.json());if(!g.results?.length)return;window._weatherCoords={lat:g.results[0].latitude,lon:g.results[0].longitude};weatherCity=g.results[0].name||city;updateWeather()}catch(_){}}}
+let state=null,sponsorIndex=0,timer=null,weather={temp:null,wind:null,code:null},weatherCity="",coordsCache=null;
+
+async function fetchJson(url){const r=await fetch(url,{cache:'no-store'});if(!r.ok)throw new Error('http');return await r.json()}
+
+async function resolveCoords(){
+  const manualCity=(state?.event?.city||'').trim();
+  if(manualCity){
+    if(coordsCache?.manualFor===manualCity) return coordsCache;
+    const g=await fetchJson(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(manualCity)}&count=1&language=pt&format=json&countryCode=BR`);
+    if(g.results?.length){
+      const x=g.results[0];
+      weatherCity=manualCity.toUpperCase();
+      coordsCache={lat:x.latitude,lon:x.longitude,manualFor:manualCity};
+      return coordsCache;
+    }
+  }
+  if(coordsCache?.lat&&coordsCache?.lon&&!coordsCache.manualFor) return coordsCache;
+
+  try{
+    const ip=await fetchJson('https://ipwho.is/');
+    if(ip && ip.success!==false && ip.latitude && ip.longitude){
+      weatherCity=[ip.city,ip.region_code||ip.region].filter(Boolean).join('/').toUpperCase();
+      coordsCache={lat:ip.latitude,lon:ip.longitude};
+      return coordsCache;
+    }
+  }catch(e){}
+
+  try{
+    const ip2=await fetchJson('https://ipapi.co/json/');
+    if(ip2 && ip2.latitude && ip2.longitude){
+      weatherCity=[ip2.city,ip2.region_code||ip2.region].filter(Boolean).join('/').toUpperCase();
+      coordsCache={lat:ip2.latitude,lon:ip2.longitude};
+      return coordsCache;
+    }
+  }catch(e){}
+
+  try{
+    const c=await new Promise((ok,no)=>navigator.geolocation.getCurrentPosition(p=>ok({lat:p.coords.latitude,lon:p.coords.longitude}),no,{enableHighAccuracy:false,timeout:10000,maximumAge:600000}));
+    coordsCache={lat:c.lat,lon:c.lon};
+    return coordsCache;
+  }catch(e){}
+  return null;
+}
+
+async function updateWeather(){
+  try{
+    const manualTemp=(state?.event?.temp||'').trim();
+    const manualWind=(state?.event?.wind||'').trim();
+    if(manualTemp||manualWind){
+      weather={temp:manualTemp?Number(String(manualTemp).replace(/[^\d.-]/g,'')):null,wind:manualWind?Number(String(manualWind).replace(/[^\d.-]/g,'')):null,code:null};
+      if((state?.event?.city||'').trim()) weatherCity=(state.event.city||'').trim().toUpperCase();
+      drawEvent();
+      return;
+    }
+    const c=await resolveCoords();
+    if(!c){drawEvent();return}
+    const w=await fetchJson(`https://api.open-meteo.com/v1/forecast?latitude=${c.lat}&longitude=${c.lon}&current=temperature_2m,wind_speed_10m,weather_code&temperature_unit=celsius&wind_speed_unit=kmh&timezone=auto`);
+    weather={temp:Math.round(w.current.temperature_2m),wind:Math.round(w.current.wind_speed_10m),code:w.current.weather_code};
+    drawEvent();
+  }catch(e){drawEvent()}
+}
+
 function wi(c){if(c===0)return"☀";if([1,2,3].includes(c))return"⛅";if([45,48].includes(c))return"🌫";if([51,53,55,61,63,65,80,81,82].includes(c))return"🌧";if([95,96,99].includes(c))return"⛈";return"☁"}
-function setClosed(idx){
- const a=state.teams[0].sets[idx],b=state.teams[1].sets[idx],g=gamesTarget(state);
- return (a>=g&&a-b>=2)||(b>=g&&b-a>=2)||(a===g+1&&b===g)||(b===g+1&&a===g);
-}
-function tieWasPlayed(){
- return state.teams.some(t=>Array.isArray(t.ties)&&t.ties.some(v=>v>0));
-}
-function superTieWasPlayed(){
- return state.teams.some(t=>(t.superTie||0)>0);
-}
+function gamesWonToClose(setA,setB,g){return (setA>=g&&setA-setB>=2)||(setB>=g&&setB-setA>=2)||(setA===g+1&&setB===g)||(setB===g+1&&setA===g)}
+function setClosed(idx){const a=state.teams[0].sets[idx],b=state.teams[1].sets[idx],g=gamesTarget(state);return gamesWonToClose(a,b,g)}
+function tieWasPlayed(){return state.teams.some(t=>Array.isArray(t.ties)&&t.ties.some(v=>v>0))}
+function superTieWasPlayed(){return state.teams.some(t=>(t.superTie||0)>0)}
+function activeSponsors(){return (state?.sponsors||[]).filter(s=>s.logo)}
+
 function draw(){
  if(!state)return;ensureScoreState(state);
- const e=state.event||{},baseTitle=[e.division,e.round].filter(Boolean).join(" • "),
- title=state.matchOver?`${baseTitle||"BEACH TENNIS"} • FINAL`:baseTitle;
-
- // Exibição progressiva:
- // SET 1 sempre; SET 2 só depois de fechar o SET 1;
- // TIE só quando realmente entrar/tenha entrado em tie-break;
- // SUPER TIE só quando a partida chegar ao match tie-break.
- const showSet2=setClosed(0)||state.currentSet===1||state.mode==="superTie"||state.matchOver;
- const showTie=state.mode==="tie"||tieWasPlayed();
- const showSuper=state.mode==="superTie"||superTieWasPlayed();
-
- const cols=[{key:"players",label:"ATLETAS"} ,{key:"s1",label:"SET 1"}];
- if(showSet2)cols.push({key:"s2",label:"SET 2"});
- if(showTie)cols.push({key:"tie",label:state.mode==="tie"?`TIE S${state.currentSet+1}`:"TIE"});
- if(showSuper)cols.push({key:"super",label:"SUPER TIE"});
- cols.push({key:"pts",label:"PTS"});
-
+ const e=state.event||{},baseTitle=[e.division,e.round].filter(Boolean).join(' • '),title=state.matchOver?`${baseTitle||'BEACH TENNIS'} • FINAL`:baseTitle;
+ const showSet2=setClosed(0)||state.currentSet===1||state.mode==='superTie'||state.matchOver;
+ const showTie=state.mode==='tie'||tieWasPlayed();
+ const showSuper=state.mode==='superTie'||superTieWasPlayed();
+ const cols=[{key:'players',label:'ATLETAS'},{key:'s1',label:'SET 1'}];
+ if(showSet2)cols.push({key:'s2',label:'SET 2'});
+ if(showTie)cols.push({key:'tie',label:state.mode==='tie'?`TIE S${state.currentSet+1}`:'TIE'});
+ if(showSuper)cols.push({key:'super',label:'SUPER TIE'});
+ cols.push({key:'pts',label:'PTS'});
  const template=`minmax(220px,1fr) repeat(${cols.length-1},64px)`;
- const h=`<div class="score-title">${title||"BEACH TENNIS"}</div><div class="head" style="grid-template-columns:${template}">${cols.map(c=>`<span>${c.label}</span>`).join("")}</div>`;
-
+ const h=`<div class="score-title">${title||'BEACH TENNIS'}</div><div class="head" style="grid-template-columns:${template}">${cols.map(c=>`<span>${c.label}</span>`).join('')}</div>`;
  const teams=state.teams.map((t,i)=>{
-   const cells=[`<div class="players">${t.players.map(p=>`<div class="player"><span class="flag">${flag(p.country)}</span>${p.name}</div>`).join("")}</div>`,
-     `<div class="cell">${t.sets[0]}</div>`];
+   const cells=[`<div class="players">${t.players.map(p=>`<div class="player"><span class="flag">${flag(p.country)}</span>${p.name}</div>`).join('')}</div>`,`<div class="cell">${t.sets[0]}</div>`];
    if(showSet2)cells.push(`<div class="cell">${t.sets[1]}</div>`);
-   if(showTie){
-     const tieSet=state.mode==="tie"?state.currentSet:(t.ties[1]>0?1:0);
-     cells.push(`<div class="cell">${t.ties[tieSet]||0}</div>`);
-   }
+   if(showTie){const tieSet=state.mode==='tie'?state.currentSet:(t.ties[1]>0?1:0);cells.push(`<div class="cell">${t.ties[tieSet]||0}</div>`)}
    if(showSuper)cells.push(`<div class="cell">${t.superTie||0}</div>`);
-   cells.push(`<div class="pts">${points(t,state)}${state.serverTeam===i?'<span class="serve"></span>':""}</div>`);
-   return `<div class="team" style="grid-template-columns:${template}">${cells.join("")}</div>`;
- }).join("");
- score.innerHTML=h+teams;drawEvent();drawSponsor()
+   cells.push(`<div class="pts">${points(t,state)}${state.serverTeam===i?'<span class="serve"></span>':''}</div>`);
+   return `<div class="team" style="grid-template-columns:${template}">${cells.join('')}</div>`;
+ }).join('');
+ score.innerHTML=h+teams;drawEvent();
+ sponsorCorner.innerHTML='';
 }
-function drawEvent(){if(!state)return;const e=state.event||{},p=[];if(e.org)p.push(`<strong>${e.org}</strong>`);if(e.category)p.push(`<strong>${e.category}</strong>`);if(weather.temp!==null)p.push(`<span>${wi(weather.code)} ${weather.temp}°C</span>`);if(weather.wind!==null)p.push(`<span>💨 ${weather.wind} km/h</span>`);if(weatherCity)p.push(`<span>${weatherCity.toUpperCase()}</span>`);eventPill.innerHTML=p.join('<span class="pill-sep"></span>')}
-function drawSponsor(){const a=(state?.sponsors||[]).filter(s=>s.logo);if(!a.length){sponsorCorner.innerHTML="";return}sponsorIndex%=a.length;sponsorCorner.innerHTML=`<img src="${a[sponsorIndex].logo}" alt="">`}
-function resetTimer(){clearInterval(timer);timer=setInterval(()=>{const a=(state?.sponsors||[]).filter(s=>s.logo);if(a.length>1){sponsorIndex=(sponsorIndex+1)%a.length;drawSponsor()}},Math.max(3,state?.rotationSeconds||9)*1000)}
-const socket=io();socket.on("state",s=>{state=s;ensureScoreState(state);draw();resetTimer();updateWeather()});setInterval(updateWeather,600000);
+
+function drawEvent(){
+ if(!state)return;
+ const e=state.event||{},p=[];
+ if(e.org)p.push(`<span class="pill-item"><strong>${e.org}</strong></span>`);
+ if(e.category)p.push(`<span class="pill-item"><strong>${e.category}</strong></span>`);
+ if(weather.temp!==null&&!Number.isNaN(weather.temp))p.push(`<span class="pill-item">${wi(weather.code)} ${weather.temp}°C</span>`);
+ if(weather.wind!==null&&!Number.isNaN(weather.wind))p.push(`<span class="pill-item">💨 ${weather.wind} km/h</span>`);
+ const cityText=((state?.event?.city||'').trim()?state.event.city:weatherCity||'').toUpperCase();
+ if(cityText)p.push(`<span class="pill-item"><strong>${cityText}</strong></span>`);
+ const logos=activeSponsors();
+ let sponsorHtml='';
+ if(logos.length){sponsorIndex%=logos.length;sponsorHtml=`<div class="event-sponsor"><img src="${logos[sponsorIndex].logo}" alt="${logos[sponsorIndex].name||'Patrocinador'}"></div>`}
+ eventPill.innerHTML=`<div class="event-pill-inner"><div class="pill-items">${p.join('')}</div>${sponsorHtml}</div>`;
+}
+
+function resetTimer(){clearInterval(timer);timer=setInterval(()=>{const a=activeSponsors();if(a.length>1){sponsorIndex=(sponsorIndex+1)%a.length;drawEvent()}},Math.max(3,state?.rotationSeconds||9)*1000)}
+const socket=io();socket.on('state',s=>{state=s;ensureScoreState(state);draw();resetTimer();updateWeather()});setInterval(updateWeather,600000);
 </script></body></html>

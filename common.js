@@ -45,7 +45,6 @@ function gamePoint(s,team){
   return
  }
  const a=s.teams[team];
- // Beach Tennis No-Ad: 0→15→30→40; o ponto seguinte fecha o game, inclusive em 40-40.
  if(a.point<3){a.point++;return}
  winGame(s,team)
 }
